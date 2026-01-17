@@ -1,6 +1,5 @@
+# This script has been replaced with the On-Premise version, but is left here for reference if anyone needs it.
 # Variables
-
-
 # Azure Connection Variables
 $AzureClientId = "" # Citrix SPN that has permissions on subscription for Citrix Administration
 $AzureClientSecret = "A" # Secret for SPN
@@ -8,30 +7,30 @@ $AzureSubscriptionId = "" # Subscription where resources will be created
 $AzureTenantId = "" # Tenant ID for Azure AD
 
 # Azure Build VM Variables
-$location    = "" # Azure region
-$rgName      = "" # Resource Group name
-$SCSIvmSize      = "Standard_D2a_v4" # VM Size for Build VM
-$NVMEvmSize      = "Standard_D2ads_v6" # VM Size for Machine Profile VM
-$vnetRG	     = "" # Resource Group where VNet is located
-$vnetName    = "" # VNet Name
-$subnetName  = "" # Subnet Name
-$vmName      = "BuildVM" # Name of the temporary VM used for image conversion from SCSI to NVME
-$MPvmname    = "MachineProfile" # Name of the VM used for Machine Profile and Machine Catalog Creation
+$location = "" # Azure region
+$rgName = "" # Resource Group name
+$SCSIvmSize = "Standard_D2a_v4" # VM Size for Build VM
+$NVMEvmSize = "Standard_D2ads_v6" # VM Size for Machine Profile VM
+$vnetRG = "" # Resource Group where VNet is located
+$vnetName = "" # VNet Name
+$subnetName = "" # Subnet Name
+$vmName = "BuildVM" # Name of the temporary VM used for image conversion from SCSI to NVME
+$MPvmname = "MachineProfile" # Name of the VM used for Machine Profile and Machine Catalog Creation
 
 $MCSDiskName = ""
-$imageName   = "$MCSDiskName-image"
-$IsHibernateSupported = @{Name='IsHibernateSupported';Value='False'}
-$IsAcceleratedNetworkSupported = @{Name='IsAcceleratedNetworkSupported';Value='True'}
+$imageName = "$MCSDiskName-image"
+$IsHibernateSupported = @{Name = 'IsHibernateSupported'; Value = 'False' }
+$IsAcceleratedNetworkSupported = @{Name = 'IsAcceleratedNetworkSupported'; Value = 'True' }
 #$ConfidentialVMSupported = @{Name='SecurityType';Value='None'}
-$NVMESupported = @{Name='DiskControllerTypes';Value='SCSI, NVMe'}
-$features = @($IsHibernateSupported,$IsAcceleratedNetworkSupported,$NVMESupported)
+$NVMESupported = @{Name = 'DiskControllerTypes'; Value = 'SCSI, NVMe' }
+$features = @($IsHibernateSupported, $IsAcceleratedNetworkSupported, $NVMESupported)
 
 # Azure Shared Image Gallery Variables
-$galleryName      = "Gallery$location"
-$imageDefName     = "v6Convert"
-$publisher        = "Citrix"
-$offer            = "IPS"
-$sku              = "MCS"
+$galleryName = "Gallery$location"
+$imageDefName = "v6Convert"
+$publisher = "Citrix"
+$offer = "IPS"
+$sku = "MCS"
 
 
 $imagescleanup = $true # Set to $true to cleanup managed disks and images after Shared Image Gallery capture
@@ -48,69 +47,69 @@ $imagescleanup = $true # Set to $true to cleanup managed disks and images after 
 ###################################################################
 function New-AzureVM {
     param (
-        [Parameter(Mandatory=$true)]
+        [Parameter(Mandatory = $true)]
         [string]$vmName,
 
-        [Parameter(Mandatory=$true)]
+        [Parameter(Mandatory = $true)]
         [string]$DiskName,
 
-        [Parameter(Mandatory=$true)]
+        [Parameter(Mandatory = $true)]
         [string]$vmSize
     )
-$osDisk = Get-AzDisk -ResourceGroupName $rgName -DiskName $DiskName
-$nicName     = "$vmName-NIC"
-$vnet   = Get-AzVirtualNetwork -Name $vnetName -ResourceGroupName $vnetRG
-$subnet = Get-AzVirtualNetworkSubnetConfig -Name $subnetName -VirtualNetwork $vnet
-$existing = Get-AzNetworkInterface -Name $nicName -ResourceGroupName $vnetRG -ErrorAction SilentlyContinue
-if ($existing) {
-    Remove-AzNetworkInterface -Name $nicName -ResourceGroupName $vnetRG -Force
-}
-$nic    = New-AzNetworkInterface -Name $nicName -ResourceGroupName $vnetRG -Location $location -SubnetId $subnet.Id
-$vmConfig = New-AzVMConfig -VMName $vmName -VMSize $vmSize | Set-AzVMBootDiagnostic -disable
-$vmConfig = Add-AzVMNetworkInterface -VM $vmConfig -Id $nic.Id
-$vmConfig = Set-AzVMOSDisk -VM $vmConfig -ManagedDiskId $osDisk.Id -CreateOption Attach -Windows
-New-AzVM -ResourceGroupName $rgName -Location $location -VM $vmConfig 
-Write-Host "VM $vmName created."
-Stop-AzVM -ResourceGroupName $rgName -Name $vmName -Force
-Write-Host "VM $vmName deallocated."
+    $osDisk = Get-AzDisk -ResourceGroupName $rgName -DiskName $DiskName
+    $nicName = "$vmName-NIC"
+    $vnet = Get-AzVirtualNetwork -Name $vnetName -ResourceGroupName $vnetRG
+    $subnet = Get-AzVirtualNetworkSubnetConfig -Name $subnetName -VirtualNetwork $vnet
+    $existing = Get-AzNetworkInterface -Name $nicName -ResourceGroupName $vnetRG -ErrorAction SilentlyContinue
+    if ($existing) {
+        Remove-AzNetworkInterface -Name $nicName -ResourceGroupName $vnetRG -Force
+    }
+    $nic = New-AzNetworkInterface -Name $nicName -ResourceGroupName $vnetRG -Location $location -SubnetId $subnet.Id
+    $vmConfig = New-AzVMConfig -VMName $vmName -VMSize $vmSize | Set-AzVMBootDiagnostic -disable
+    $vmConfig = Add-AzVMNetworkInterface -VM $vmConfig -Id $nic.Id
+    $vmConfig = Set-AzVMOSDisk -VM $vmConfig -ManagedDiskId $osDisk.Id -CreateOption Attach -Windows
+    New-AzVM -ResourceGroupName $rgName -Location $location -VM $vmConfig 
+    Write-Host "VM $vmName created."
+    Stop-AzVM -ResourceGroupName $rgName -Name $vmName -Force
+    Write-Host "VM $vmName deallocated."
 }
 
 function Remove-AzureVM {
     param (
-        [Parameter(Mandatory=$true)]
+        [Parameter(Mandatory = $true)]
         [string]$vmName
     )
-$vm = Get-AzVM -ResourceGroupName $rgName -Name $vmName
-$nicId = $vm.NetworkProfile.NetworkInterfaces[0].Id
-$osDiskId = $vm.StorageProfile.OsDisk.ManagedDisk.Id
-Remove-AzVM -ResourceGroupName $rgName -Name $vmName -Force
-$nicName = (Split-Path -Path $nicId -Leaf)
-Remove-AzNetworkInterface -ResourceGroupName $vnetRG -Name $nicName -Force
-$osDiskName = (Split-Path -Path $osDiskId -Leaf)
-Remove-AzDisk -ResourceGroupName $rgName -DiskName $osDiskName -Force
-Write-Host "VM $vmName and associated resources removed."
+    $vm = Get-AzVM -ResourceGroupName $rgName -Name $vmName
+    $nicId = $vm.NetworkProfile.NetworkInterfaces[0].Id
+    $osDiskId = $vm.StorageProfile.OsDisk.ManagedDisk.Id
+    Remove-AzVM -ResourceGroupName $rgName -Name $vmName -Force
+    $nicName = (Split-Path -Path $nicId -Leaf)
+    Remove-AzNetworkInterface -ResourceGroupName $vnetRG -Name $nicName -Force
+    $osDiskName = (Split-Path -Path $osDiskId -Leaf)
+    Remove-AzDisk -ResourceGroupName $rgName -DiskName $osDiskName -Force
+    Write-Host "VM $vmName and associated resources removed."
 }
 
 function Update-BuildVdisk {
     param (
-        [Parameter(Mandatory=$true)]
+        [Parameter(Mandatory = $true)]
         [string]$vmName,
 
-        [Parameter(Mandatory=$true)]
+        [Parameter(Mandatory = $true)]
         [string]$DiskName
     )
-Stop-AzVM -ResourceGroupName $rgName -Name $vmName -Force
-Write-Host "VM deallocated."
-$vm.StorageProfile.OsDisk.ManagedDisk.Id = $newDiskId
-$newDiskName = ($newDiskId.Split("/") | Select-Object -Last 1)
-$vm.StorageProfile.OsDisk.Name = $newDiskName
-Update-AzVM -ResourceGroupName $rgName -VM $vm
-Write-Host "OS disk on VM $vmName updated to $newDiskName."
-if ($newDiskName -ne $previousDiskName) {
-$script:diskupdated = $true
-}
-else {
-}
+    Stop-AzVM -ResourceGroupName $rgName -Name $vmName -Force
+    Write-Host "VM deallocated."
+    $vm.StorageProfile.OsDisk.ManagedDisk.Id = $newDiskId
+    $newDiskName = ($newDiskId.Split("/") | Select-Object -Last 1)
+    $vm.StorageProfile.OsDisk.Name = $newDiskName
+    Update-AzVM -ResourceGroupName $rgName -VM $vm
+    Write-Host "OS disk on VM $vmName updated to $newDiskName."
+    if ($newDiskName -ne $previousDiskName) {
+        $script:diskupdated = $true
+    }
+    else {
+    }
 }
 
 ###################################################
@@ -129,7 +128,7 @@ $pscredential = New-Object -TypeName System.Management.Automation.PSCredential -
 Connect-AzAccount -ServicePrincipal -Credential $pscredential -Tenant $AzureTenantId -Subscription $AzureSubscriptionId
 
 # Create Managed Image of converted MCS disk
-$newDiskId  = "/subscriptions/$AzureSubscriptionId/resourceGroups/$rgName/providers/Microsoft.Compute/disks/$MCSDiskName" 
+$newDiskId = "/subscriptions/$AzureSubscriptionId/resourceGroups/$rgName/providers/Microsoft.Compute/disks/$MCSDiskName" 
 
 $vm = Get-AzVM -ResourceGroupName $rgName -Name $vmName -ErrorAction SilentlyContinue
 if ($null -eq $vm) {
@@ -206,17 +205,18 @@ New-AzGalleryImageVersion `
 $latestImageVersion = Get-AzGalleryImageVersion -ResourceGroupName $rgName -GalleryName $galleryName -GalleryImageDefinitionName $imageDefName |  Sort-Object -Property Name -Descending | Select-Object -First 1
 
 $diskName = $latestImageVersion.Name
-$galleryImageReference = @{Id = $latestImageVersion.Id}
+$galleryImageReference = @{Id = $latestImageVersion.Id }
 $diskConfig = New-AzDiskConfig -Location $location -CreateOption FromImage -GalleryImageReference $galleryImageReference -OsType Windows
 New-AzDisk -ResourceGroupName $rgName -DiskName $diskName -Disk $diskConfig
 
-  $vm = Get-AzVM -ResourceGroupName $rgName -Name $MPvmname -ErrorAction SilentlyContinue
+$vm = Get-AzVM -ResourceGroupName $rgName -Name $MPvmname -ErrorAction SilentlyContinue
 
-  if ($null -eq $vm) {
+if ($null -eq $vm) {
 
-    } else {
-Remove-AzureVM -vmName $MPvmname
-    }
+}
+else {
+    Remove-AzureVM -vmName $MPvmname
+}
 New-AzureVM -vmName $MPvmname -DiskName $diskName -VMSize $NVMEvmSize 
 
 # Images cleanup
@@ -227,10 +227,10 @@ If ($imagescleanup -eq $true) {
     }
     else {
     }
-Write-Host "Removing Uploaded PVS Disk: $vDiskName"
-Remove-AzDisk -ResourceGroupName $rgName -DiskName $vDiskName -Force
-Write-Host "Removing MCS Imaged Disk: $imageName"
-Remove-AzImage -ResourceGroupName $rgName -ImageName $imageName -Force
+    Write-Host "Removing Uploaded PVS Disk: $vDiskName"
+    Remove-AzDisk -ResourceGroupName $rgName -DiskName $vDiskName -Force
+    Write-Host "Removing MCS Imaged Disk: $imageName"
+    Remove-AzImage -ResourceGroupName $rgName -ImageName $imageName -Force
 }
 else {
     Write-Host "You have opted to retain the intermediate disks and images."
