@@ -5,7 +5,7 @@ These scripts are specifically for the Citrix Azure Image Portability Service.  
 The 2511 version of Citrix App Layering brings the cloud based version of IPS to your local datacenter.  To use this entirely from on-premise make sure you meet the following requirements.
 
 * Ensure the machine where you are running this script from has line of site to the Azure Resource Location before running.  
-* To use Web Studio Image Galleries, only VDAs with 2402 (any verion) and 2507 (vanilla only) are supported at this time.
+* To use Web Studio Image Galleries, only VDAs with 2402 (any version) and 2507 (vanilla only) are supported at this time.
 * Your Delivery Controller, or Domain Joined machine requires the follow pre-requisites
 * Azure PowerShell Module installed
 * Citrix PoshSDK Module installed if not running on Delivery Controller
